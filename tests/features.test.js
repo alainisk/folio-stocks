@@ -63,6 +63,56 @@ test("provider symbols match local exchange and reject mismatched suffixes", () 
   assert.equal(providerSymbol("MC", "EPA"), "MC.PA");
   assert.throws(() => providerSymbol("RY.TO", "XETRA"));
 });
+test("Anthropic's saved ticker uses ANT for quotes and history", async () => {
+  const marketTime = 1795112820;
+  const fetcher = async (url) => {
+    assert.equal(new URL(url).pathname, "/v8/finance/chart/ANT");
+    return {
+      ok: true,
+      json: async () => ({
+        chart: {
+          result: [
+            {
+              meta: {
+                symbol: "ANT",
+                currency: "USD",
+                exchangeName: "NMS",
+                regularMarketTime: marketTime,
+                regularMarketPrice: 95.92,
+                previousClose: 83,
+              },
+              timestamp: [marketTime],
+              indicators: { quote: [{ close: [95.92] }] },
+            },
+          ],
+        },
+      }),
+    };
+  };
+  const saved = await chart("ANT-U", "NASDAQ", "USD", "1D", fetcher);
+  assert.equal(saved.symbol, "ANT-U");
+  assert.equal(saved.providerSymbol, "ANT");
+  assert.equal(saved.current, 95.92);
+  assert.equal(saved.points[0].value, 95.92);
+  const listed = await chart("ANT", "NASDAQ", "USD", "1D", fetcher);
+  assert.equal(listed.symbol, "ANT");
+  await assert.rejects(
+    () => chart("ANT", "NYSE", "USD", "1D", fetcher),
+    /not NYSE/,
+  );
+  assert.equal(providerSymbol("ANT-U", "NYSE"), "ANT-U");
+  assert.equal(providerSymbol("OTHER-U", "NASDAQ"), "OTHER-U");
+});
+test("an unrecognized ticker gets a listing error", async () => {
+  await assert.rejects(
+    () =>
+      chart("UNLISTED", "NASDAQ", "USD", "1D", async () => ({
+        ok: false,
+        status: 404,
+      })),
+    /Check the ticker and exchange/,
+  );
+});
 test("watchlist reference returns are hypothetical and never create transactions", () => {
   const s = emptyWorkspace();
   s.watchlist.push({

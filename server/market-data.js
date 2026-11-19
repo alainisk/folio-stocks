@@ -24,6 +24,10 @@ const suffixes = {
   BME: ".MC",
   HEL: ".HE",
 };
+const providerAliases = new Map([
+  // Preserve ANT-U on saved holdings while quoting Anthropic's Nasdaq ticker.
+  ["NASDAQ:ANT-U", "ANT"],
+]);
 export function providerSymbol(symbol, exchange) {
   if (
     !/^[A-Z0-9.^-]{1,20}$/.test(symbol) ||
@@ -37,7 +41,10 @@ export function providerSymbol(symbol, exchange) {
       throw Error("The ticker suffix does not match the selected exchange.");
     return symbol.endsWith(suffix) ? symbol : symbol + suffix;
   }
-  return symbol.replace(/\.([A-Z])$/, "-$1");
+  return (
+    providerAliases.get(`${exchange}:${symbol}`) ??
+    symbol.replace(/\.([A-Z])$/, "-$1")
+  );
 }
 const cache = new Map(),
   pending = new Map();
@@ -51,7 +58,7 @@ export async function chart(
   const config = PERIODS[period];
   if (!config) throw Error("Unsupported chart period.");
   const ticker = providerSymbol(symbol, exchange),
-    key = `${ticker}:${currency}:${period}`;
+    key = `${exchange}:${symbol}:${currency}:${period}`;
   const saved = cache.get(key);
   if (saved && Date.now() - saved.at < 60000) return saved.data;
   if (pending.has(key)) return pending.get(key);
@@ -70,6 +77,8 @@ export async function chart(
         signal: AbortSignal.timeout(15000),
       },
     );
+    if (response.status === 404)
+      throw Error("No market data found. Check the ticker and exchange.");
     if (!response.ok)
       throw Error(
         response.status === 429
