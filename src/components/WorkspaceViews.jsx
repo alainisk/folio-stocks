@@ -1,5 +1,9 @@
 import { upgradeWorkspace } from "../lib/workspaces";
 import {
+  DEFAULT_REFRESH_MINUTES,
+  REFRESH_MINUTE_OPTIONS,
+} from "../lib/refresh-settings";
+import {
   markets,
   currencies,
   defaultMarket,
@@ -228,17 +232,33 @@ export function Settings({
             aria-label="Automatic price updates"
             type="checkbox"
             checked={state.autoRefresh}
-            onChange={(e) =>
+            onChange={(e) => {
+              const autoRefresh = e.currentTarget.checked;
               onChange(
-                { ...state, autoRefresh: e.target.checked },
-                e.target.checked
+                (current) => ({ ...current, autoRefresh }),
+                autoRefresh
                   ? "Automatic updates enabled"
                   : "Automatic updates paused",
-              )
-            }
+              );
+            }}
           />
-          <span>Update prices automatically every 15 minutes</span>
+          <span>Automatic price updates</span>
         </label>
+        <Field label="Refresh interval">
+          <select
+            value={state.refreshMinutes ?? DEFAULT_REFRESH_MINUTES}
+            onChange={(e) => {
+              const refreshMinutes = Number(e.currentTarget.value);
+              onChange((current) => ({ ...current, refreshMinutes }));
+            }}
+          >
+            {REFRESH_MINUTE_OPTIONS.map((minutes) => (
+              <option key={minutes} value={minutes}>
+                {minutes} {minutes === 1 ? "minute" : "minutes"}
+              </option>
+            ))}
+          </select>
+        </Field>
         <p>
           Refreshes while this member’s workspace is open, and catches up after
           sleep or reconnecting. Prices may be delayed by the source. Your last

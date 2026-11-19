@@ -4,10 +4,6 @@ import {
   addSnapshot,
   positions,
 } from "./portfolio.js";
-export const REFRESH_MS = 15 * 60 * 1000;
-export function refreshDue(lastRefresh, now = Date.now()) {
-  return !lastRefresh || now - Date.parse(lastRefresh) >= REFRESH_MS;
-}
 export function quoteTargets(state) {
   const targets = new Map();
   for (const portfolio of ["simulated", "actual"])

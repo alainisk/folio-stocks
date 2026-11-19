@@ -73,7 +73,7 @@ The Firebase project is `folio-stocks`, using the default Firestore database in 
 
 ## Automatic web quotes
 
-Quotes refresh on opening the app and every 15 minutes while it is running, with catch-up after sleep or reconnecting. Only the selected member is refreshed; other members catch up when selected. Settings can disable automatic refresh, and Update prices also supports manual values and on-demand web updates.
+In **Settings → Market data**, choose a refresh interval from 1 to 15 minutes. The default is 15 minutes. The interval is saved with each member’s workspace. Automatic refresh runs for the selected member while the app is open and catches up after sleep or reconnecting. Settings can pause automatic refresh. Update prices also supports manual values and on-demand web updates.
 
 The server uses Yahoo Finance's public chart endpoint, without an API key, for supported US, Canadian and European listings. It validates currency and exchange, caches briefly, limits concurrent requests and preserves existing prices on partial failures. Last-check status and individual quote timestamps are visible. Provider data may be delayed or unavailable; this is an unofficial endpoint without a service guarantee. Live retrieval was verified for AAPL/NASDAQ/USD, RY/TSX/CAD and SAP/XETRA/EUR.
 
@@ -108,6 +108,6 @@ npm run test:browser
 npm run screenshots
 ```
 
-Financial tests cover fees, selected lots, same-session buys/sales, dividends, missing/stale quotes, separate currencies/exchanges, initial principal, time zones, import validation and CSV escaping. Browser checks cover EUR/Xetra purchases, quotes, sales, dividends, persistence, watchlist alerts, export, restore, all ten chart ranges, named watchlists, member separation, rich notes, unsafe imported HTML, exact 15-minute scheduling and mobile navigation.
+Financial tests cover fees, selected lots, same-session buys/sales, dividends, missing/stale quotes, separate currencies/exchanges, initial principal, time zones, import validation and CSV escaping. Browser checks cover EUR/Xetra purchases, quotes, sales, dividends, persistence, watchlist alerts, export, restore, all ten chart ranges, named watchlists, member separation, rich notes, unsafe imported HTML, configurable refresh scheduling and mobile navigation.
 
 Design brief and verification: `docs/design/design-system.md`, `docs/design/verification.md`.

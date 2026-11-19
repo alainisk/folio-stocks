@@ -2,6 +2,7 @@ import useAutoRefresh from "./hooks/useAutoRefresh";
 import ThemeToggle from "./components/ThemeToggle";
 import { upgradeWorkspace } from "./lib/workspaces";
 import { watchPositions } from "./lib/watchlists";
+import { DEFAULT_REFRESH_MINUTES } from "./lib/refresh-settings";
 import Watchlists from "./components/Watchlists";
 import { currencies, instrumentKey, migrate } from "./lib/markets";
 import { useState, useEffect, useMemo } from "react";
@@ -69,6 +70,7 @@ export default function App({
     [state, portfolio, currency],
   );
   const refreshStatus = useAutoRefresh(state, setState);
+  const refreshMinutes = state.refreshMinutes ?? DEFAULT_REFRESH_MINUTES;
   const watched = modal?.watchId
     ? state.watchlist.find((w) => w.id === modal.watchId)
     : null;
@@ -313,7 +315,7 @@ export default function App({
               {refreshStatus.busy
                 ? "Updating web prices..."
                 : state.autoRefresh
-                  ? "Automatic web updates · every 15 minutes"
+                  ? `Automatic web updates · every ${refreshMinutes} minute${refreshMinutes === 1 ? "" : "s"}`
                   : "Automatic updates paused"}
               {state.lastRefresh &&
                 ` · Last checked ${new Date(state.lastRefresh).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}

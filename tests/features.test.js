@@ -8,19 +8,35 @@ import {
 } from "../src/lib/workspaces.js";
 import { initialState } from "../src/lib/seed.js";
 import {
-  REFRESH_MS,
-  refreshDue,
-  fetchPrices,
-  applyPrices,
-} from "../src/lib/refresh.js";
+  DEFAULT_REFRESH_MINUTES,
+  refreshDelay,
+} from "../src/lib/refresh-settings.js";
+import { fetchPrices, applyPrices } from "../src/lib/refresh.js";
 import { quoteKey, validateBackup } from "../src/lib/portfolio.js";
 import { providerSymbol, chart, PERIODS } from "../server/market-data.js";
 import { watchPositions } from "../src/lib/watchlists.js";
-test("15-minute refresh threshold is exact", () => {
+test("refresh deadlines follow the selected interval", () => {
   const now = Date.now();
-  assert.equal(REFRESH_MS, 900000);
-  assert.equal(refreshDue(new Date(now - 899999).toISOString(), now), false);
-  assert.equal(refreshDue(new Date(now - 900000).toISOString(), now), true);
+  assert.equal(DEFAULT_REFRESH_MINUTES, 15);
+  assert.equal(refreshDelay(0, DEFAULT_REFRESH_MINUTES, now), 0);
+  assert.equal(refreshDelay(now - 899999, DEFAULT_REFRESH_MINUTES, now), 1);
+  assert.equal(refreshDelay(now - 900000, DEFAULT_REFRESH_MINUTES, now), 0);
+  assert.equal(refreshDelay(now - 59999, 1, now), 1);
+  assert.equal(refreshDelay(now - 60000, 1, now), 0);
+});
+test("backups preserve valid refresh intervals and accept older workspaces", () => {
+  const workspace = emptyWorkspace();
+  assert.doesNotThrow(() => validateBackup(workspace));
+  for (const refreshMinutes of [1, 7, 15]) {
+    const saved = { ...workspace, refreshMinutes };
+    assert.equal(validateBackup(saved).refreshMinutes, refreshMinutes);
+    assert.equal(upgradeWorkspace(saved).refreshMinutes, refreshMinutes);
+  }
+  for (const refreshMinutes of [0, 1.5, 16, "1", null])
+    assert.throws(
+      () => validateBackup({ ...workspace, refreshMinutes }),
+      /Invalid refresh interval/,
+    );
 });
 test("workspace migration preserves original trades and adds named watchlists", () => {
   const s = initialState(),
