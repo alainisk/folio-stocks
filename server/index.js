@@ -3,6 +3,7 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chart } from "./market-data.js";
+import { DEFAULT_REFRESH_MINUTES } from "../src/lib/refresh-settings.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const app = express();
 app.get("/api/firebase-config", (_req, res) => {
@@ -30,7 +31,7 @@ app.get("/api/status", (_req, res) =>
     provider: "Yahoo Finance",
     configured: true,
     markets: ["US", "Canada", "Europe"],
-    refreshMinutes: 15,
+    refreshMinutes: DEFAULT_REFRESH_MINUTES,
     mode: "public-web-data",
   }),
 );

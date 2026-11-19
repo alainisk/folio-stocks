@@ -5,6 +5,7 @@ import {
   instrumentKey,
   marketTimezone,
 } from "./markets.js";
+import { REFRESH_MINUTE_OPTIONS } from "./refresh-settings.js";
 export const today = () =>
   new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/New_York",
@@ -408,6 +409,11 @@ export function validateBackup(s) {
   }
   if (s.autoRefresh !== undefined && typeof s.autoRefresh !== "boolean")
     throw Error("Invalid refresh setting.");
+  if (
+    s.refreshMinutes !== undefined &&
+    !REFRESH_MINUTE_OPTIONS.includes(s.refreshMinutes)
+  )
+    throw Error("Invalid refresh interval.");
   return s;
 }
 export function addSnapshot(s, portfolio, currency) {
