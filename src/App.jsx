@@ -137,6 +137,7 @@ export default function App({
       `${t.type === "buy" ? "Purchase" : t.type === "sell" ? "Sale" : "Dividend"} recorded`,
     );
     setCurrency(t.currency);
+    if (modal?.closeLot) navigate("Profit & Loss");
     setModal(null);
   }
   function savePlatform(id, platform) {
@@ -532,6 +533,16 @@ export default function App({
               state={state}
               portfolio={portfolio}
               currency={currency}
+              positions={m.positions}
+              onCloseTrade={
+                isSimulation
+                  ? undefined
+                  : (lot) =>
+                      setModal({
+                        type: "trade",
+                        closeLot: lot,
+                      })
+              }
               onPlatformChange={isSimulation ? undefined : savePlatform}
               onDelete={(t) => {
                 if (
@@ -651,6 +662,7 @@ export default function App({
           portfolio={portfolio}
           currency={currency}
           position={modal.position}
+          closeLot={modal.closeLot}
           initialType={modal.initialType}
           onSave={saveTrade}
           onClose={() => setModal(null)}

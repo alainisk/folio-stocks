@@ -69,6 +69,7 @@ export default function ProfitLoss({ transactions }) {
                   <th scope="col">Purchased</th>
                   <th scope="col">Sold</th>
                   <th scope="col">Shares</th>
+                  <th scope="col">Sale price per share</th>
                   <th scope="col">Avg. purchase</th>
                   <th scope="col">Initial investment</th>
                   <th scope="col">Currency</th>
@@ -105,6 +106,7 @@ export default function ProfitLoss({ transactions }) {
                       <td>{trade.purchaseDate}</td>
                       <td>{trade.date}</td>
                       <td>{quantity(trade.shares)}</td>
+                      <td>{money(trade.price, trade.currency)}</td>
                       <td>{money(trade.avgPurchase, trade.currency)}</td>
                       <td>{money(trade.initialInvestment, trade.currency)}</td>
                       <td>{trade.currency}</td>
@@ -126,7 +128,7 @@ export default function ProfitLoss({ transactions }) {
           text={
             trades.length
               ? "Try a different search or currency."
-              : "Record a sale from a holding to see its realized return here."
+              : "Use Close Trade on a purchase in Trade Journal to record a sale and see its realized return here."
           }
         />
       )}

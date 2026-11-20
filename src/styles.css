@@ -641,6 +641,14 @@ tr:last-child td {
   text-align: right;
   white-space: normal;
 }
+.journal-trade-action {
+  margin-top: 6px;
+  text-align: left;
+}
+.journal-trade-action .button {
+  min-height: 30px;
+  padding: 6px 9px;
+}
 .table-foot {
   padding: 13px 22px;
   border-top: 1px solid var(--border);

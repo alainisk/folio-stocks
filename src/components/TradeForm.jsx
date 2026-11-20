@@ -14,29 +14,31 @@ export default function TradeForm({
   portfolio,
   currency: scopeCurrency,
   position,
+  closeLot,
   initialType = "buy",
   onSave,
   onClose,
 }) {
-  const [currency, setCurrency] = useState(scopeCurrency),
+  const instrument = closeLot ?? position;
+  const [currency, setCurrency] = useState(closeLot?.currency ?? scopeCurrency),
     [exchange, setExchange] = useState(
-      position?.exchange || defaultMarket(scopeCurrency),
+      instrument?.exchange || defaultMarket(scopeCurrency),
     );
-  const [type, setType] = useState(initialType),
-    [symbol, setSymbol] = useState(position?.symbol || ""),
-    [name, setName] = useState(position?.name || ""),
-    [date, setDate] = useState(today()),
-    [shares, setShares] = useState(""),
+  const [type, setType] = useState(closeLot ? "sell" : initialType),
+    [symbol, setSymbol] = useState(instrument?.symbol || ""),
+    [name, setName] = useState(instrument?.name || ""),
+    [date, setDate] = useState(() => (closeLot ? "" : today())),
+    [shares, setShares] = useState(closeLot ? String(closeLot.remaining) : ""),
     [price, setPrice] = useState(""),
     [fee, setFee] = useState("0"),
     [amount, setAmount] = useState(""),
     [notes, setNotes] = useState(""),
     [platform, setPlatform] = useState(""),
     [lotId, setLotId] = useState(
-      position?.lots.find((l) => l.remaining > 0)?.id || "",
+      closeLot?.id ?? position?.lots.find((l) => l.remaining > 0)?.id ?? "",
     ),
     [error, setError] = useState("");
-  const lot = position?.lots.find((l) => l.id === lotId),
+  const lot = closeLot ?? position?.lots.find((l) => l.id === lotId),
     total =
       Number(shares) * Number(price) + (type === "sell" ? -1 : 1) * Number(fee);
   function symbolChange(value) {
@@ -85,18 +87,24 @@ export default function TradeForm({
   return (
     <Modal
       title={
-        type === "buy"
-          ? "Add a purchase"
-          : type === "sell"
-            ? "Record a sale"
-            : "Record a dividend"
+        closeLot
+          ? "Close Trade"
+          : type === "buy"
+            ? "Add a purchase"
+            : type === "sell"
+              ? "Record a sale"
+              : "Record a dividend"
       }
-      subtitle={`${portfolio === "simulated" ? "Simulated portfolio" : "Actual holdings"} · ${currency}`}
+      subtitle={
+        closeLot
+          ? `${closeLot.symbol} · ${closeLot.name} · ${closeLot.exchange} · ${currency}`
+          : `${portfolio === "simulated" ? "Simulated portfolio" : "Actual holdings"} · ${currency}`
+      }
       onClose={onClose}
     >
       <form onSubmit={submit}>
         <div className="form-body">
-          {position?.lots.length > 0 && (
+          {!closeLot && position?.lots.length > 0 && (
             <div className="segmented full">
               {["buy", "sell", "dividend"].map((t) => (
                 <button
@@ -118,78 +126,92 @@ export default function TradeForm({
             </div>
           )}
           <div className="form-grid">
-            <Field label="Market / exchange">
-              <select
-                aria-label="Market / exchange"
-                value={exchange}
-                disabled={!!position}
-                onChange={(e) => {
-                  setExchange(e.target.value);
-                  setCurrency(
-                    markets.find((m) => m.code === e.target.value).currency,
-                  );
-                }}
-              >
-                {markets.map((m) => (
-                  <option key={m.code} value={m.code}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Purchase currency">
-              <select
-                aria-label="Purchase currency"
-                value={currency}
-                disabled={!!position}
-                onChange={(e) => setCurrency(e.target.value)}
-              >
-                {currencies.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Stock symbol">
-              <input
-                aria-label="Stock symbol"
-                required
-                autoFocus
-                list="symbols"
-                placeholder="e.g. AAPL"
-                value={symbol}
-                disabled={!!position}
-                onChange={(e) => symbolChange(e.target.value)}
-                maxLength={20}
-              />
-              <datalist id="symbols">
-                {catalog.map((c) => (
-                  <option key={c.symbol} value={c.symbol}>
-                    {c.name}
-                  </option>
-                ))}
-              </datalist>
-            </Field>
+            {!closeLot && (
+              <>
+                <Field label="Market / exchange">
+                  <select
+                    aria-label="Market / exchange"
+                    value={exchange}
+                    disabled={!!position}
+                    onChange={(e) => {
+                      setExchange(e.target.value);
+                      setCurrency(
+                        markets.find((m) => m.code === e.target.value).currency,
+                      );
+                    }}
+                  >
+                    {markets.map((m) => (
+                      <option key={m.code} value={m.code}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Purchase currency">
+                  <select
+                    aria-label="Purchase currency"
+                    value={currency}
+                    disabled={!!position}
+                    onChange={(e) => setCurrency(e.target.value)}
+                  >
+                    {currencies.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Stock symbol">
+                  <input
+                    aria-label="Stock symbol"
+                    required
+                    autoFocus
+                    list="symbols"
+                    placeholder="e.g. AAPL"
+                    value={symbol}
+                    disabled={!!position}
+                    onChange={(e) => symbolChange(e.target.value)}
+                    maxLength={20}
+                  />
+                  <datalist id="symbols">
+                    {catalog.map((c) => (
+                      <option key={c.symbol} value={c.symbol}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </datalist>
+                </Field>
+              </>
+            )}
             <Field
-              label={type === "buy" ? "Date of purchase" : "Transaction date"}
+              label={
+                closeLot
+                  ? "Sale date"
+                  : type === "buy"
+                    ? "Date of purchase"
+                    : "Transaction date"
+              }
             >
               <input
                 required
+                autoFocus={!!closeLot}
                 type="date"
+                min={closeLot?.date}
                 max={today()}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
               />
             </Field>
-            <Field label="Company name" className="span-2">
-              <input
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Company name"
-                maxLength={120}
-              />
-            </Field>
-            {type === "sell" && (
+            {!closeLot && (
+              <Field label="Company name" className="span-2">
+                <input
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Company name"
+                  maxLength={120}
+                />
+              </Field>
+            )}
+            {type === "sell" && !closeLot && (
               <Field label="Purchase lot" className="span-2">
                 <select
                   required
@@ -224,11 +246,11 @@ export default function TradeForm({
               </Field>
             ) : (
               <>
-                <Field label="Number of shares">
+                <Field label={closeLot ? "Shares sold" : "Number of shares"}>
                   <input
                     required
                     type="number"
-                    min="0.000001"
+                    min={closeLot ? undefined : "0.000001"}
                     max={type === "sell" ? lot?.remaining : undefined}
                     step="any"
                     placeholder="0"
@@ -310,9 +332,11 @@ export default function TradeForm({
             </p>
           )}
           <p className="caption">
-            {portfolio === "actual"
-              ? "Record a purchase you made through your broker. This app does not place orders."
-              : "This transaction uses your simulated balance. No money is traded."}
+            {closeLot
+              ? `Purchased on ${closeLot.date} at ${money(closeLot.price, currency)} per share. Saving opens Profit & Loss.`
+              : portfolio === "actual"
+                ? "Record a purchase you made through your broker. This app does not place orders."
+                : "This transaction uses your simulated balance. No money is traded."}
           </p>
           {error && (
             <div role="alert" className="form-error">

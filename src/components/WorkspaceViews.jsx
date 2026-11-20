@@ -39,6 +39,8 @@ export function Journal({
   state,
   portfolio,
   currency,
+  positions,
+  onCloseTrade,
   onDelete,
   onPlatformChange,
 }) {
@@ -49,6 +51,14 @@ export function Journal({
   const platforms = new Map(
     transactions.filter((t) => t.type === "buy").map((t) => [t.id, t.platform]),
   );
+  const openLots = new Map();
+  if (onCloseTrade) {
+    for (const position of positions) {
+      for (const lot of position.lots) {
+        if (lot.remaining > 1e-8) openLots.set(lot.id, lot);
+      }
+    }
+  }
   const rows = transactions
     .filter(
       (t) =>
@@ -113,6 +123,17 @@ export function Journal({
                   <td>{t.date}</td>
                   <td>
                     <Company {...t} small />
+                    {openLots.has(t.id) && (
+                      <div className="journal-trade-action">
+                        <button
+                          type="button"
+                          className="button"
+                          onClick={() => onCloseTrade(openLots.get(t.id))}
+                        >
+                          Close Trade
+                        </button>
+                      </div>
+                    )}
                   </td>
                   <td>
                     <span className={`type-tag ${t.type}`}>

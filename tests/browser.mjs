@@ -39,6 +39,7 @@ await page.getByLabel("Watchlist name").fill("Paper ideas");
 await button("Save watchlist").click();
 await button("Transactions").click();
 await expect(page.getByRole("table")).toContainText("Apple Inc.");
+await expect(button("Close Trade")).toHaveCount(0);
 await button("Performance").click();
 await expect(button("1D")).toBeVisible();
 await button("1D").click();
@@ -134,6 +135,49 @@ await expect(
 await page
   .getByRole("combobox", { name: "Portfolio currency" })
   .selectOption("EUR");
+await button("Trade Journal").click();
+await button("Close Trade").click();
+const closeTrade = page.getByRole("dialog", { name: "Close Trade" });
+await expect(closeTrade.getByLabel("Shares sold")).toHaveValue("6");
+await button("Cancel").click();
+await expect(closeTrade).toHaveCount(0);
+
+await button("Add purchase").click();
+await page.getByLabel("Market / exchange").selectOption("XETRA");
+await page.getByLabel("Stock symbol").fill("SAP");
+await page.getByLabel("Company name").fill("SAP SE");
+await page.getByLabel("Date of purchase").fill("2024-11-01");
+await page.getByLabel("Number of shares").fill("3.5");
+await page.getByLabel("Purchase price per share (EUR)").fill("75");
+await page.getByLabel("Fees (EUR)").fill("1.75");
+await button("Save purchase").click();
+const purchaseLot = page.getByRole("row").filter({ hasText: "2024-11-01" });
+await purchaseLot.getByRole("button", { name: "Close Trade" }).click();
+await expect(closeTrade.getByLabel("Shares sold")).toHaveValue("3.5");
+await expect(closeTrade.getByLabel("Sale date")).toHaveValue("");
+await expect(closeTrade.getByLabel("Sale price per share (EUR)")).toHaveValue(
+  "",
+);
+await closeTrade.getByLabel("Sale date").fill("2024-11-08");
+await closeTrade.getByLabel("Sale price per share (EUR)").fill("70");
+await closeTrade.getByLabel("Fees (EUR)").fill("0.75");
+await button("Save sale").click();
+await expect(
+  page.getByRole("heading", { name: "Profit & Loss", exact: true }),
+).toBeVisible();
+const closedSale = page.getByRole("row").filter({ hasText: "2024-11-08" });
+await expect(closedSale).toContainText("2024-11-01");
+await expect(closedSale).toContainText("€70.00");
+await expect(closedSale).toContainText("-€20.00");
+await expect(page.getByRole("row").filter({ hasText: "SAP SE" })).toHaveCount(
+  2,
+);
+await button("Trade Journal").click();
+await expect(
+  purchaseLot.getByRole("button", { name: "Close Trade" }),
+).toHaveCount(0);
+await expect(button("Close Trade")).toHaveCount(1);
+
 await button("Watchlist").click();
 await expect(page.getByRole("group", { name: "Simulation views" })).toHaveCount(
   0,
@@ -214,6 +258,6 @@ if (dims.width !== dims.scroll)
   throw Error(`Mobile overflow: ${JSON.stringify(dims)}`);
 if (errors.length) throw Error(errors.join("\n"));
 console.log(
-  "PASS: navigation, simulation isolation, 1D chart, EUR purchase, sale P/L, trade platform and persistence, manual quote, dividend, CAD separation, watchlist target, CSV export, backup restore and mobile navigation. No browser errors.",
+  "PASS: navigation, simulation isolation, 1D chart, EUR purchase, sale P/L, journal Close Trade, trade platform and persistence, manual quote, dividend, CAD separation, watchlist target, CSV export, backup restore and mobile navigation. No browser errors.",
 );
 await browser.close();
