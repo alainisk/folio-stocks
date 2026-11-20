@@ -172,7 +172,37 @@ await expect(closedSale).toContainText("-€20.00");
 await expect(page.getByRole("row").filter({ hasText: "SAP SE" })).toHaveCount(
   2,
 );
+const editSale = page.getByRole("dialog", { name: "Edit sale" });
+await closedSale.getByRole("button", { name: "Edit sale" }).click();
+await expect(editSale.getByLabel("Sale date")).toHaveValue("2024-11-08");
+await expect(editSale.getByLabel("Sale price per share (EUR)")).toHaveValue(
+  "70",
+);
+await editSale.getByLabel("Sale date").fill("2024-10-31");
+await button("Save changes").click();
+await expect(editSale).toBeVisible();
+await button("Cancel").click();
+await expect(closedSale).toContainText("-€20.00");
+
+await closedSale.getByRole("button", { name: "Edit sale" }).click();
+await editSale.getByLabel("Sale date").fill("2024-11-12");
+await editSale.getByLabel("Sale price per share (EUR)").fill("85");
+await button("Save changes").click();
+const correctedSale = page.getByRole("row").filter({ hasText: "2024-11-12" });
+await expect(closedSale).toHaveCount(0);
+await expect(correctedSale).toContainText("€85.00");
+await expect(correctedSale).toContainText("+€32.50");
+await expect(correctedSale).toContainText("+12.30%");
+await page.reload();
+await button("Profit & Loss").click();
+await expect(correctedSale).toContainText("+€32.50");
+await expect(page.getByRole("row").filter({ hasText: "SAP SE" })).toHaveCount(
+  2,
+);
+await page.getByLabel("Portfolio currency").selectOption("EUR");
 await button("Trade Journal").click();
+const journalSale = page.getByRole("row").filter({ hasText: "2024-11-12" });
+await expect(journalSale).toContainText("€85.00");
 await expect(
   purchaseLot.getByRole("button", { name: "Close Trade" }),
 ).toHaveCount(0);
@@ -258,6 +288,6 @@ if (dims.width !== dims.scroll)
   throw Error(`Mobile overflow: ${JSON.stringify(dims)}`);
 if (errors.length) throw Error(errors.join("\n"));
 console.log(
-  "PASS: navigation, simulation isolation, 1D chart, EUR purchase, sale P/L, journal Close Trade, trade platform and persistence, manual quote, dividend, CAD separation, watchlist target, CSV export, backup restore and mobile navigation. No browser errors.",
+  "PASS: navigation, simulation isolation, 1D chart, EUR purchase, sale P/L, journal Close Trade, Edit sale and persistence, trade platform, manual quote, dividend, CAD separation, watchlist target, CSV export, backup restore and mobile navigation. No browser errors.",
 );
 await browser.close();

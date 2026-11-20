@@ -124,7 +124,7 @@ export function Journal({
                   <td>
                     <Company {...t} small />
                     {openLots.has(t.id) && (
-                      <div className="journal-trade-action">
+                      <div className="trade-row-action">
                         <button
                           type="button"
                           className="button"

@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { currencies } from "../lib/markets";
-import { money, quantity, realizedTrades } from "../lib/portfolio";
-import { Company, Empty, Return } from "./Primitives";
+import { money, quantity, realizedTrades, today } from "../lib/portfolio";
+import { Company, Empty, Field, Modal, Return } from "./Primitives";
 
-export default function ProfitLoss({ transactions }) {
+export default function ProfitLoss({ transactions, onEditSale }) {
   const [query, setQuery] = useState("");
   const [currency, setCurrency] = useState("all");
+  const [editingSale, setEditingSale] = useState(null);
   const trades = useMemo(
     () => realizedTrades(transactions, "actual"),
     [transactions],
@@ -88,6 +89,15 @@ export default function ProfitLoss({ transactions }) {
                     <tr key={trade.id}>
                       <td>
                         <Company {...trade} />
+                        <div className="trade-row-action">
+                          <button
+                            type="button"
+                            className="button"
+                            onClick={() => setEditingSale(trade)}
+                          >
+                            Edit sale
+                          </button>
+                        </div>
                       </td>
                       <td>
                         <Return
@@ -132,6 +142,82 @@ export default function ProfitLoss({ transactions }) {
           }
         />
       )}
+      {editingSale && (
+        <EditSaleForm
+          sale={editingSale}
+          onSave={onEditSale}
+          onClose={() => setEditingSale(null)}
+        />
+      )}
     </section>
+  );
+}
+
+function EditSaleForm({ sale, onSave, onClose }) {
+  const [error, setError] = useState("");
+
+  function submit(event) {
+    event.preventDefault();
+    const fields = new FormData(event.currentTarget);
+    const date = fields.get("date");
+    const price = Number(fields.get("price"));
+    const changes = {};
+    if (date !== sale.date) changes.date = date;
+    if (price !== sale.price) changes.price = price;
+    try {
+      if (Object.keys(changes).length) onSave(sale.id, changes);
+      onClose();
+    } catch (error) {
+      setError(error.message);
+    }
+  }
+
+  return (
+    <Modal
+      title="Edit sale"
+      subtitle={`${sale.symbol} · ${sale.exchange} · ${sale.currency}`}
+      onClose={onClose}
+    >
+      <form onSubmit={submit}>
+        <div className="form-body">
+          <div className="form-grid">
+            <Field label="Sale date">
+              <input
+                name="date"
+                type="date"
+                required
+                autoFocus
+                min={sale.purchaseDate}
+                max={today()}
+                defaultValue={sale.date}
+              />
+            </Field>
+            <Field label={`Sale price per share (${sale.currency})`}>
+              <input
+                name="price"
+                type="number"
+                required
+                min="0"
+                step="any"
+                defaultValue={sale.price}
+              />
+            </Field>
+          </div>
+          {error && (
+            <div role="alert" className="form-error">
+              {error}
+            </div>
+          )}
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="primary">
+            Save changes
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }

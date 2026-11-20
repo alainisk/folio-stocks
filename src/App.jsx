@@ -31,6 +31,7 @@ import {
   download,
   csv,
   today,
+  validateTransaction,
 } from "./lib/portfolio";
 import { Metrics, Charts, Holdings } from "./components/Dashboard";
 import { Modal } from "./components/Primitives";
@@ -139,6 +140,30 @@ export default function App({
     setCurrency(t.currency);
     if (modal?.closeLot) navigate("Profit & Loss");
     setModal(null);
+  }
+  function editSale(id, changes) {
+    const sale = state.transactions.find(
+      (t) => t.id === id && t.type === "sell" && t.portfolio === "actual",
+    );
+    if (!sale) throw Error("This sale is no longer available.");
+    validateTransaction(
+      { ...sale, ...changes },
+      { transactions: state.transactions.filter((t) => t.id !== id) },
+    );
+    change(
+      (current) =>
+        addSnapshot(
+          {
+            ...current,
+            transactions: current.transactions.map((t) =>
+              t.id === id ? { ...t, ...changes } : t,
+            ),
+          },
+          sale.portfolio,
+          sale.currency,
+        ),
+      "Sale updated",
+    );
   }
   function savePlatform(id, platform) {
     change(
@@ -580,7 +605,10 @@ export default function App({
             />
           )}
           {page === "Profit & Loss" && (
-            <ProfitLoss transactions={state.transactions} />
+            <ProfitLoss
+              transactions={state.transactions}
+              onEditSale={editSale}
+            />
           )}
           {page === "Settings" && (
             <Settings

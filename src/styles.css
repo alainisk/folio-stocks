@@ -641,11 +641,11 @@ tr:last-child td {
   text-align: right;
   white-space: normal;
 }
-.journal-trade-action {
+.trade-row-action {
   margin-top: 6px;
   text-align: left;
 }
-.journal-trade-action .button {
+.trade-row-action .button {
   min-height: 30px;
   padding: 6px 9px;
 }
