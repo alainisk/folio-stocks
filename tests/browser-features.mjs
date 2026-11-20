@@ -9,7 +9,13 @@ await localWorkspaceFixture(page);
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 const seed = createMembers();
-seed.members[0].workspace.autoRefresh = false;
+const workspace = seed.members[0].workspace;
+workspace.autoRefresh = false;
+workspace.transactions.push({
+  ...workspace.transactions.find((t) => t.symbol === "AAPL"),
+  id: "actual-aapl",
+  portfolio: "actual",
+});
 await page.addInitScript((data) => {
   if (!localStorage.getItem("folio.members.v2"))
     localStorage.setItem("folio.members.v2", JSON.stringify(data));

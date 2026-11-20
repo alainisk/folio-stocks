@@ -15,6 +15,7 @@ await p.addInitScript(
   seed,
 );
 await p.goto(process.env.FOLIO_QA_URL || "http://localhost:5173");
+await p.getByRole("button", { name: "Simulation", exact: true }).click();
 await p
   .getByRole("button", { name: "View AAPL NASDAQ details", exact: true })
   .click();

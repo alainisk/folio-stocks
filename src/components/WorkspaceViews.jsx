@@ -35,10 +35,21 @@ import {
   csv,
 } from "../lib/portfolio";
 import { catalog } from "../lib/seed";
-export function Journal({ state, portfolio, currency, onDelete }) {
+export function Journal({
+  state,
+  portfolio,
+  currency,
+  onDelete,
+  onPlatformChange,
+}) {
   const [query, setQuery] = useState(""),
-    [type, setType] = useState("all");
-  const rows = scopeTransactions(state, portfolio, currency)
+    [type, setType] = useState("all"),
+    [platformTrade, setPlatformTrade] = useState(null);
+  const transactions = scopeTransactions(state, portfolio, currency);
+  const platforms = new Map(
+    transactions.filter((t) => t.type === "buy").map((t) => [t.id, t.platform]),
+  );
+  const rows = transactions
     .filter(
       (t) =>
         (type === "all" || t.type === type) &&
@@ -52,7 +63,9 @@ export function Journal({ state, portfolio, currency, onDelete }) {
     <section className="panel">
       <div className="panel-head">
         <div>
-          <h2>Trade journal</h2>
+          <h2>
+            {onPlatformChange ? "Transactions" : "Simulated transactions"}
+          </h2>
           <p>Every purchase, sale, and dividend in one place.</p>
         </div>
         <div className="table-tools">
@@ -89,6 +102,7 @@ export function Journal({ state, portfolio, currency, onDelete }) {
                 <th>Price</th>
                 <th>Fees</th>
                 <th>Total</th>
+                {onPlatformChange && <th>Trade platform</th>}
                 <th>Notes</th>
                 <th>Correct</th>
               </tr>
@@ -125,6 +139,21 @@ export function Journal({ state, portfolio, currency, onDelete }) {
                       currency,
                     )}
                   </td>
+                  {onPlatformChange && (
+                    <td className="platform-cell">
+                      {t.type === "buy" ? (
+                        <button
+                          className="text-button"
+                          aria-label={`${t.platform ? "Edit" : "Add"} trade platform for ${t.symbol} purchase on ${t.date}`}
+                          onClick={() => setPlatformTrade(t)}
+                        >
+                          {t.platform || "Add platform"}
+                        </button>
+                      ) : (
+                        platforms.get(t.lotId) || "—"
+                      )}
+                    </td>
+                  )}
                   <td className="notes">{t.notes || "—"}</td>
                   <td>
                     <button
@@ -145,6 +174,46 @@ export function Journal({ state, portfolio, currency, onDelete }) {
           title="A fresh page"
           text="Your recorded transactions will appear here."
         />
+      )}
+      {platformTrade && (
+        <Modal
+          title="Trade platform"
+          subtitle={`${platformTrade.symbol} · ${platformTrade.date}`}
+          onClose={() => setPlatformTrade(null)}
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const platform = new FormData(e.currentTarget)
+                .get("platform")
+                .trim();
+              onPlatformChange(platformTrade.id, platform);
+              setPlatformTrade(null);
+            }}
+          >
+            <div className="form-body">
+              <Field label="Trade platform (optional)">
+                <input
+                  name="platform"
+                  autoFocus
+                  defaultValue={platformTrade.platform || ""}
+                  placeholder="Broker or trading app"
+                  maxLength={120}
+                />
+              </Field>
+            </div>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="button"
+                onClick={() => setPlatformTrade(null)}
+              >
+                Cancel
+              </button>
+              <button className="primary">Save platform</button>
+            </div>
+          </form>
+        </Modal>
       )}
     </section>
   );

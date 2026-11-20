@@ -7,7 +7,6 @@ import {
   money,
   uid,
   validateTransaction,
-  quoteKey,
   summary,
 } from "../lib/portfolio";
 export default function TradeForm({
@@ -32,6 +31,7 @@ export default function TradeForm({
     [fee, setFee] = useState("0"),
     [amount, setAmount] = useState(""),
     [notes, setNotes] = useState(""),
+    [platform, setPlatform] = useState(""),
     [lotId, setLotId] = useState(
       position?.lots.find((l) => l.remaining > 0)?.id || "",
     ),
@@ -64,6 +64,9 @@ export default function TradeForm({
         amount: Number(amount),
         lotId,
         notes: notes.trim(),
+        ...(type === "buy" && portfolio === "actual" && platform.trim()
+          ? { platform: platform.trim() }
+          : {}),
       };
       validateTransaction(t, state);
       if (
@@ -257,6 +260,16 @@ export default function TradeForm({
                   />
                 </Field>
               </>
+            )}
+            {portfolio === "actual" && type === "buy" && (
+              <Field label="Trade platform (optional)">
+                <input
+                  value={platform}
+                  onChange={(e) => setPlatform(e.target.value)}
+                  placeholder="Broker or trading app"
+                  maxLength={120}
+                />
+              </Field>
             )}
             <Field label="Notes (optional)" className="span-2">
               <textarea

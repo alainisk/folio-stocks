@@ -6,6 +6,7 @@ import {
   marketTimezone,
 } from "./markets.js";
 import { REFRESH_MINUTE_OPTIONS } from "./refresh-settings.js";
+export const MAX_WATCHLISTS_PER_PORTFOLIO = 100;
 export const today = () =>
   new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/New_York",
@@ -47,6 +48,34 @@ export const scopeTransactions = (state, portfolio, currency) =>
   state.transactions.filter(
     (t) => t.portfolio === portfolio && t.currency === currency,
   );
+const averagePurchase = (buy) => buy.price + buy.fee / buy.shares;
+const realizedReturn = (sale, average) =>
+  sale.shares * (sale.price - average) - sale.fee;
+
+export function realizedTrades(transactions, portfolio) {
+  const scoped = transactions.filter((t) => t.portfolio === portfolio);
+  const buys = new Map(
+    scoped.filter((t) => t.type === "buy").map((t) => [t.id, t]),
+  );
+  return scoped
+    .filter((t) => t.type === "sell")
+    .map((sale) => {
+      const buy = buys.get(sale.lotId);
+      const avgPurchase = averagePurchase(buy);
+      const total = realizedReturn(sale, avgPurchase);
+      return {
+        ...sale,
+        purchaseDate: buy.date,
+        platform: buy.platform,
+        avgPurchase,
+        initialInvestment: sale.shares * buy.price,
+        total,
+        totalPct: pct(total, sale.shares * avgPurchase),
+      };
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
 export function positions(state, portfolio, currency) {
   const ts = scopeTransactions(state, portfolio, currency);
   return [...new Set(ts.map((t) => instrumentKey(t.symbol, t.exchange)))].map(
@@ -69,7 +98,7 @@ export function positions(state, portfolio, currency) {
       }));
       const shares = lots.reduce((a, b) => a + b.remaining, 0),
         invested = lots.reduce(
-          (a, b) => a + b.remaining * (b.price + b.fee / b.shares),
+          (a, b) => a + b.remaining * averagePurchase(b),
           0,
         );
       const totalOutlay = buys.reduce(
@@ -84,7 +113,7 @@ export function positions(state, portfolio, currency) {
         shares > 1e-8 ? (usable ? shares * quote.current : null) : 0;
       const realized = sells.reduce((a, s) => {
         const b = buys.find((b) => b.id === s.lotId);
-        return a + s.shares * (s.price - b.price - b.fee / b.shares) - s.fee;
+        return a + realizedReturn(s, averagePurchase(b));
       }, 0);
       const dividends = rows
         .filter((t) => t.type === "dividend")
@@ -222,6 +251,11 @@ export function validateTransaction(t, state) {
     (typeof t.notes !== "string" || t.notes.length > 2000)
   )
     throw Error("Invalid transaction notes.");
+  if (
+    t.platform !== undefined &&
+    (typeof t.platform !== "string" || t.platform.length > 120)
+  )
+    throw Error("Invalid trade platform.");
   if (
     !/^[A-Z0-9.^-]{1,20}$/.test(t.symbol) ||
     typeof t.name !== "string" ||
@@ -362,24 +396,34 @@ export function validateBackup(s) {
   if (s.watchlists !== undefined) {
     if (
       !Array.isArray(s.watchlists) ||
-      !s.watchlists.length ||
-      s.watchlists.length > 100
+      s.watchlists.length > 2 * MAX_WATCHLISTS_PER_PORTFOLIO ||
+      !["actual", "simulated"].every((portfolio) => {
+        const count = s.watchlists.filter(
+          (list) => list && (!list.portfolio || list.portfolio === portfolio),
+        ).length;
+        return count > 0 && count <= MAX_WATCHLISTS_PER_PORTFOLIO;
+      })
     )
       throw Error("Invalid watchlists.");
-    const ids = new Set();
+    const lists = new Map();
     for (const l of s.watchlists) {
       if (
+        !l ||
         typeof l.id !== "string" ||
-        ids.has(l.id) ||
+        lists.has(l.id) ||
+        (l.portfolio !== undefined &&
+          !["actual", "simulated"].includes(l.portfolio)) ||
         typeof l.name !== "string" ||
         !l.name.trim() ||
         l.name.length > 60
       )
         throw Error("Invalid watchlist name or ID.");
-      ids.add(l.id);
+      lists.set(l.id, l);
     }
     for (const w of s.watchlist) {
-      if (!ids.has(w.listId)) throw Error("Watchlist group is missing.");
+      const list = lists.get(w.listId);
+      if (!list || (list.portfolio && list.portfolio !== w.portfolio))
+        throw Error("Watchlist group is missing from this portfolio.");
       if (
         !Number.isFinite(w.referenceShares) ||
         w.referenceShares <= 0 ||

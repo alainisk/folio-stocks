@@ -29,9 +29,8 @@ export default function PositionDetail({
         />
         {watchOnly && (
           <div className="info-box">
-            Watchlist reference position · these figures track a hypothetical
-            investment. No purchase has been recorded. Use Add purchase to
-            create an actual or simulated holding.
+            This watchlist entry uses your tracking quantity and reference
+            price. Select Add purchase to record a trade.
           </div>
         )}
         <div className="detail-stats">

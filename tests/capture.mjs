@@ -11,6 +11,8 @@ const page = await browser.newPage({
 });
 await localWorkspaceFixture(page);
 await page.goto(process.env.FOLIO_QA_URL || "http://localhost:5173");
+await page.getByRole("button", { name: "Simulation", exact: true }).click();
+await page.getByRole("button", { name: "Performance", exact: true }).click();
 await page
   .getByRole("button", { name: "View NVDA NASDAQ details", exact: true })
   .waitFor();

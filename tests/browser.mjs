@@ -17,13 +17,37 @@ await page.addInitScript((d) => {
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 const button = (name) => page.getByRole("button", { name, exact: true });
-const metrics = () => page.locator(".metrics").innerText();
 await page.goto(process.env.FOLIO_QA_URL || "http://localhost:5173");
+const navigation = page.getByRole("navigation", { name: "Main navigation" });
+await expect(navigation.getByRole("button")).toHaveText([
+  "Overview",
+  "Holdings",
+  "Watchlist",
+  "Simulation",
+  "Trade Journal",
+  "Profit & Loss",
+  "Settings",
+]);
+await expect(button("View NVDA NASDAQ details")).toHaveCount(0);
+await button("Simulation").click();
+await expect(button("View NVDA NASDAQ details")).toBeVisible();
+await expect(page.getByText("Available cash")).toBeVisible();
+await button("Watchlists").click();
+await expect(button("View TSLA NASDAQ details")).toBeVisible();
+await button("New watchlist").click();
+await page.getByLabel("Watchlist name").fill("Paper ideas");
+await button("Save watchlist").click();
+await button("Transactions").click();
+await expect(page.getByRole("table")).toContainText("Apple Inc.");
+await button("Performance").click();
 await expect(button("1D")).toBeVisible();
 await button("1D").click();
 await expect(button("1D")).toHaveAttribute("aria-pressed", "true");
 await button("3M").click();
-await button("Actual holdings").click();
+await button("Holdings").click();
+await expect(page.getByRole("group", { name: "Simulation views" })).toHaveCount(
+  0,
+);
 await button("Add purchase").first().click();
 await page
   .getByLabel("Market / exchange", { exact: true })
@@ -38,6 +62,7 @@ await page
   .getByLabel("Purchase price per share (EUR)", { exact: true })
   .fill("100");
 await page.getByLabel("Fees (EUR)", { exact: true }).fill("5");
+await page.getByLabel("Trade platform (optional)").fill("Test Broker");
 await expect(
   page.getByText("Initial investment: €1,000.00", { exact: false }),
 ).toBeVisible();
@@ -63,13 +88,39 @@ await page.getByLabel("Fees (EUR)", { exact: true }).fill("2");
 await button("Save sale").click();
 await expect(page.locator(".metrics")).toContainText("€720.00");
 await expect(page.locator(".metrics")).toContainText("+€173.00");
+await button("Profit & Loss").click();
+const saleRow = page.getByRole("row").filter({ hasText: "SAP SE" });
+await expect(saleRow).toContainText("+€56.00");
+await expect(saleRow).toContainText("+13.93%");
+await expect(saleRow).toContainText("€100.50");
+await expect(saleRow).toContainText("€400.00");
+await expect(saleRow).toContainText("Test Broker");
+await expect(saleRow).toContainText("Profit");
+await page.getByLabel("Trade currency", { exact: true }).selectOption("USD");
+await expect(
+  page.getByRole("heading", { name: "No matching sales" }),
+).toBeVisible();
+await button("Trade Journal").click();
+await expect(page.getByRole("group", { name: "Simulation views" })).toHaveCount(
+  0,
+);
+await page
+  .getByRole("button", { name: /Edit trade platform for SAP purchase/ })
+  .click();
+await page.getByLabel("Trade platform (optional)").fill("Updated Broker");
+await button("Save platform").click();
+await button("Profit & Loss").click();
+await expect(saleRow).toContainText("Updated Broker");
+await button("Holdings").click();
 await button("View SAP XETRA details").click();
 await button("Add dividend").click();
 await page.getByLabel("Dividend received (EUR)", { exact: true }).fill("20");
 await button("Save dividend").click();
 await expect(page.locator(".metrics")).toContainText("+€193.00");
 await page.reload();
-await button("Actual holdings").click();
+await button("Profit & Loss").click();
+await expect(saleRow).toContainText("Updated Broker");
+await button("Holdings").click();
 await page
   .getByRole("combobox", { name: "Portfolio currency" })
   .selectOption("EUR");
@@ -84,6 +135,11 @@ await page
   .getByRole("combobox", { name: "Portfolio currency" })
   .selectOption("EUR");
 await button("Watchlist").click();
+await expect(page.getByRole("group", { name: "Simulation views" })).toHaveCount(
+  0,
+);
+await expect(button("View TSLA NASDAQ details")).toHaveCount(0);
+await expect(page.getByRole("button", { name: /Paper ideas/ })).toHaveCount(0);
 await button("Add symbol").first().click();
 await page.getByLabel("Market / exchange", { exact: true }).selectOption("EPA");
 await page.getByLabel("Symbol", { exact: true }).fill("MC");
@@ -109,6 +165,14 @@ const dl = page.waitForEvent("download");
 await button("Export").click();
 const d = await dl;
 if (!d.suggestedFilename().endsWith(".csv")) throw Error("CSV export missing");
+await button("Watchlist").click();
+await button("Delete watchlist").click();
+await button("Confirm").click();
+await page.getByLabel("Portfolio currency").selectOption("USD");
+await button("Simulation").click();
+await button("Watchlists").click();
+await expect(button("View TSLA NASDAQ details")).toBeVisible();
+await expect(page.getByRole("button", { name: /Paper ideas/ })).toBeVisible();
 await button("Settings").click();
 await page.locator("input[type=file]").setInputFiles({
   name: "clean.json",
@@ -117,14 +181,13 @@ await page.locator("input[type=file]").setInputFiles({
 });
 await button("Confirm").click();
 await button("Overview").click();
-await button("Actual holdings").click();
 await expect(
   page.getByRole("heading", { name: "Make your first move" }),
 ).toBeVisible();
 await page
   .getByRole("combobox", { name: "Portfolio currency" })
   .selectOption("USD");
-await button("Simulated").click();
+await button("Simulation").click();
 await expect(button("View NVDA NASDAQ details")).toBeVisible();
 await page.setViewportSize({ width: 390, height: 844 });
 await expect(button("Open navigation")).toBeVisible();
@@ -134,7 +197,14 @@ await page
   .getByRole("button", { name: "Holdings", exact: true })
   .click();
 await expect(
-  page.getByRole("heading", { name: "Every position. In perspective." }),
+  page.getByRole("heading", { name: "Holdings", exact: true, level: 1 }),
+).toBeVisible();
+await button("Open navigation").click();
+await navigation
+  .getByRole("button", { name: "Profit & Loss", exact: true })
+  .click();
+await expect(
+  page.getByRole("heading", { name: "No sales recorded" }),
 ).toBeVisible();
 const dims = await page.evaluate(() => ({
   width: innerWidth,
@@ -144,6 +214,6 @@ if (dims.width !== dims.scroll)
   throw Error(`Mobile overflow: ${JSON.stringify(dims)}`);
 if (errors.length) throw Error(errors.join("\n"));
 console.log(
-  "PASS: 1D chart, EUR/market purchase, initial investment, manual quote, sale, dividend, persistence, CAD separation, watchlist target, CSV export, backup restore, mobile navigation. No browser errors.",
+  "PASS: navigation, simulation isolation, 1D chart, EUR purchase, sale P/L, trade platform and persistence, manual quote, dividend, CAD separation, watchlist target, CSV export, backup restore and mobile navigation. No browser errors.",
 );
 await browser.close();

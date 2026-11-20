@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   summary,
+  realizedTrades,
   validateTransaction,
   validateQuote,
   validateBackup,
@@ -94,6 +95,55 @@ test("fully sold positions retain lifetime realized gains and daily sale gains",
   assert.equal(s.realized, 143);
   assert.equal(s.total, 143);
   assert.equal(s.daily, 48);
+});
+test("realized trades preserve each sale and its allocated lot costs in the trade currency", () => {
+  const usd = buy({ platform: "Example Broker" });
+  const cad = buy({ id: "cad-buy", currency: "CAD", exchange: "TSX" });
+  const simulated = buy({ id: "demo-buy", portfolio: "simulated" });
+  const sell = (purchase, changes) => ({
+    ...purchase,
+    type: "sell",
+    lotId: purchase.id,
+    date: "2026-01-06",
+    price: 115,
+    shares: 4,
+    fee: 2,
+    ...changes,
+  });
+  const transactions = [
+    usd,
+    cad,
+    simulated,
+    buy({ id: "open-buy" }),
+    sell(usd, { id: "partial" }),
+    sell(usd, { id: "remaining", date: "2026-01-07", shares: 6, price: 90 }),
+    sell(cad, { id: "cad-sell", date: "2026-01-08", price: 101 }),
+    sell(simulated, { id: "demo-sell" }),
+  ];
+  validateBackup({ ...base(), transactions });
+  const [canadianSale, loss, profit] = realizedTrades(transactions, "actual");
+  assert.deepEqual(
+    realizedTrades(transactions, "actual").map((t) => t.id),
+    ["cad-sell", "remaining", "partial"],
+  );
+  assert.equal(canadianSale.currency, "CAD");
+  assert.equal(canadianSale.platform, undefined);
+  assert.equal(canadianSale.total, 0);
+  assert.equal(canadianSale.totalPct, 0);
+  assert.equal(loss.total, -65);
+  assert.equal(loss.totalPct, pct(-65, 603));
+  assert.equal(profit.platform, "Example Broker");
+  assert.equal(profit.purchaseDate, "2026-01-05");
+  assert.equal(profit.date, "2026-01-06");
+  assert.equal(profit.shares, 4);
+  assert.equal(profit.avgPurchase, 100.5);
+  assert.equal(profit.initialInvestment, 400);
+  assert.equal(profit.total, 56);
+  assert.equal(profit.totalPct, pct(56, 402));
+  assert.equal(
+    calc({ ...base(), transactions }).realized,
+    loss.total + profit.total,
+  );
 });
 test("same-day purchase and sale, dividends and fees reconcile", () => {
   const b = buy({ date: "2026-01-06" }),

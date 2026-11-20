@@ -259,6 +259,9 @@ main {
   color: white;
   box-shadow: 0 2px 4px #6255df20;
 }
+.simulation-views {
+  flex-wrap: wrap;
+}
 .segmented.full {
   display: flex;
   margin-bottom: 22px;
@@ -627,6 +630,16 @@ tr:last-child td {
   font-size: 8px;
   color: var(--theme-muted-text, #a2a7b7);
   margin-top: 5px;
+}
+.platform-cell {
+  min-width: 88px;
+  max-width: 180px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.platform-cell .text-button {
+  text-align: right;
+  white-space: normal;
 }
 .table-foot {
   padding: 13px 22px;
@@ -2318,6 +2331,12 @@ code {
   }
   .portfolio-row {
     margin-bottom: 16px;
+  }
+  .simulation-views button {
+    flex: 1 1 42%;
+  }
+  .profit-loss .holdings-head {
+    flex-wrap: wrap;
   }
 }
 @media (max-height: 850px) {

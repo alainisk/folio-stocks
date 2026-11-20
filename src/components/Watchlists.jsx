@@ -5,7 +5,14 @@ import { Holdings } from "./Dashboard";
 import { catalog } from "../lib/seed";
 import { markets, defaultMarket } from "../lib/markets";
 import { watchPositions } from "../lib/watchlists";
-import { uid, today, money, download, csv } from "../lib/portfolio";
+import {
+  uid,
+  today,
+  money,
+  download,
+  csv,
+  MAX_WATCHLISTS_PER_PORTFOLIO,
+} from "../lib/portfolio";
 export default function Watchlists({
   state,
   portfolio,
@@ -14,11 +21,14 @@ export default function Watchlists({
   onDetail,
   onBuy,
 }) {
-  const [selected, setSelected] = useState(state.watchlists[0].id),
+  const lists = state.watchlists.filter(
+    (l) => !l.portfolio || l.portfolio === portfolio,
+  );
+  const otherPortfolio = portfolio === "actual" ? "simulated" : "actual";
+  const [selected, setSelected] = useState(lists[0].id),
     [modal, setModal] = useState(null),
     [error, setError] = useState("");
-  const active =
-      state.watchlists.find((l) => l.id === selected) || state.watchlists[0],
+  const active = lists.find((l) => l.id === selected) || lists[0],
     rows = watchPositions(state, portfolio, currency, active.id);
   const [listName, setListName] = useState(""),
     [form, setForm] = useState({});
@@ -92,8 +102,9 @@ export default function Watchlists({
   function saveList(e) {
     e.preventDefault();
     const name = listName.trim();
+    if (!name) return setError("Enter a watchlist name.");
     if (
-      state.watchlists.some(
+      lists.some(
         (l) =>
           l.name.toLowerCase() === name.toLowerCase() &&
           (modal === "new-list" || l.id !== active.id),
@@ -101,22 +112,42 @@ export default function Watchlists({
     )
       return setError("A watchlist with that name already exists.");
     if (modal === "new-list") {
+      if (lists.length >= MAX_WATCHLISTS_PER_PORTFOLIO)
+        return setError(
+          `A portfolio can have up to ${MAX_WATCHLISTS_PER_PORTFOLIO} watchlists.`,
+        );
       const id = uid();
       onChange(
-        { ...state, watchlists: [...state.watchlists, { id, name }] },
+        (current) => ({
+          ...current,
+          watchlists: [...current.watchlists, { id, name, portfolio }],
+        }),
         "Watchlist created",
       );
       setSelected(id);
-    } else
+    } else {
+      const otherListId = active.portfolio ? null : uid();
       onChange(
-        {
-          ...state,
-          watchlists: state.watchlists.map((l) =>
-            l.id === active.id ? { ...l, name } : l,
-          ),
-        },
+        (current) => ({
+          ...current,
+          watchlists: current.watchlists.flatMap((l) => {
+            if (l.id !== active.id) return [l];
+            const renamed = { ...l, name, portfolio };
+            return otherListId
+              ? [renamed, { ...l, id: otherListId, portfolio: otherPortfolio }]
+              : [renamed];
+          }),
+          watchlist: otherListId
+            ? current.watchlist.map((w) =>
+                w.listId === active.id && w.portfolio === otherPortfolio
+                  ? { ...w, listId: otherListId }
+                  : w,
+              )
+            : current.watchlist,
+        }),
         "Watchlist renamed",
       );
+    }
     setModal(null);
   }
   function exportList() {
@@ -155,7 +186,7 @@ export default function Watchlists({
     <>
       <section className="watchlist-bar">
         <div className="watchlist-tabs" aria-label="Named watchlists">
-          {state.watchlists.map((l) => (
+          {lists.map((l) => (
             <button
               key={l.id}
               className={l.id === active.id ? "active" : ""}
@@ -203,7 +234,7 @@ export default function Watchlists({
           <button
             className="icon-button"
             aria-label="Delete watchlist"
-            disabled={state.watchlists.length === 1}
+            disabled={lists.length === 1}
             onClick={() => setModal("delete-list")}
           >
             <Trash2 size={15} />
@@ -313,7 +344,7 @@ export default function Watchlists({
                   value={form.listId}
                   onChange={(e) => field("listId", e.target.value)}
                 >
-                  {state.watchlists.map((l) => (
+                  {lists.map((l) => (
                     <option value={l.id} key={l.id}>
                       {l.name}
                     </option>
@@ -412,9 +443,8 @@ export default function Watchlists({
                 />
               </Field>
               <p className="caption span-2">
-                Tracking figures help evaluate an idea; they do not create a
-                purchase or spend simulation cash. Notes and charts are
-                available by opening the stock.
+                Tracking figures help evaluate an idea. Open the stock to see
+                its notes and charts.
               </p>
               {error && (
                 <p className="form-error span-2" role="alert">
@@ -462,20 +492,22 @@ export default function Watchlists({
               onClick={() => {
                 if (modal === "delete-list") {
                   onChange(
-                    {
-                      ...state,
-                      watchlists: state.watchlists.filter(
-                        (l) => l.id !== active.id,
+                    (current) => ({
+                      ...current,
+                      watchlists: current.watchlists.flatMap((l) => {
+                        if (l.id !== active.id) return [l];
+                        return l.portfolio
+                          ? []
+                          : [{ ...l, portfolio: otherPortfolio }];
+                      }),
+                      watchlist: current.watchlist.filter(
+                        (w) =>
+                          w.listId !== active.id || w.portfolio !== portfolio,
                       ),
-                      watchlist: state.watchlist.filter(
-                        (w) => w.listId !== active.id,
-                      ),
-                    },
+                    }),
                     "Watchlist deleted",
                   );
-                  setSelected(
-                    state.watchlists.find((l) => l.id !== active.id).id,
-                  );
+                  setSelected(lists.find((l) => l.id !== active.id).id);
                 } else
                   onChange(
                     {

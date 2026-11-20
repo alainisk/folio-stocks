@@ -4,13 +4,15 @@ import { upgradeWorkspace } from "./lib/workspaces";
 import { watchPositions } from "./lib/watchlists";
 import { DEFAULT_REFRESH_MINUTES } from "./lib/refresh-settings";
 import Watchlists from "./components/Watchlists";
-import { currencies, instrumentKey, migrate } from "./lib/markets";
+import { currencies, instrumentKey } from "./lib/markets";
 import { useState, useEffect, useMemo } from "react";
 import {
   Home,
   ChartNoAxesColumnIncreasing,
   Star,
   BookOpen,
+  FlaskConical,
+  ChartNoAxesCombined,
   Settings as SettingsIcon,
   Plus,
   Upload,
@@ -20,19 +22,14 @@ import {
   Menu,
   X,
   Wallet,
-  ArrowUpRight,
 } from "lucide-react";
-import { initialState, STORE } from "./lib/seed";
 import {
   summary,
   quoteKey,
-  positions,
   addSnapshot,
   money,
-  percent,
   download,
   csv,
-  validateBackup,
   today,
 } from "./lib/portfolio";
 import { Metrics, Charts, Holdings } from "./components/Dashboard";
@@ -41,12 +38,21 @@ import TradeForm from "./components/TradeForm";
 import PositionDetail from "./components/PositionDetail";
 import PriceForm from "./components/PriceForm";
 import { Journal, Settings } from "./components/WorkspaceViews";
+import ProfitLoss from "./components/ProfitLoss";
 const nav = [
   ["Overview", Home],
   ["Holdings", ChartNoAxesColumnIncreasing],
   ["Watchlist", Star],
-  ["Trade journal", BookOpen],
+  ["Simulation", FlaskConical],
+  ["Trade Journal", BookOpen],
+  ["Profit & Loss", ChartNoAxesCombined],
   ["Settings", SettingsIcon],
+];
+const simulationViews = [
+  "Positions",
+  "Watchlists",
+  "Transactions",
+  "Performance",
 ];
 export default function App({
   state,
@@ -59,12 +65,23 @@ export default function App({
   syncStatus,
 }) {
   const [page, setPage] = useState("Overview"),
-    [portfolio, setPortfolio] = useState("simulated"),
+    [simulationView, setSimulationView] = useState("Positions"),
     [currency, setCurrency] = useState("USD"),
     [modal, setModal] = useState(null),
     [toast, setToast] = useState(""),
     [provider, setProvider] = useState(null),
     [mobile, setMobile] = useState(false);
+  const isSimulation = page === "Simulation";
+  const portfolio = isSimulation ? "simulated" : "actual";
+  const showPerformance =
+    page === "Overview" || (isSimulation && simulationView === "Performance");
+  const showPositions =
+    page === "Holdings" || (isSimulation && simulationView === "Positions");
+  const showWatchlists =
+    page === "Watchlist" || (isSimulation && simulationView === "Watchlists");
+  const showJournal =
+    page === "Trade Journal" ||
+    (isSimulation && simulationView === "Transactions");
   const m = useMemo(
     () => summary(state, portfolio, currency),
     [state, portfolio, currency],
@@ -103,17 +120,35 @@ export default function App({
     setState(next);
     if (message) setToast(message);
   }
+  function navigate(nextPage) {
+    setPage(nextPage);
+    if (nextPage === "Simulation" && !isSimulation)
+      setSimulationView("Positions");
+    setMobile(false);
+  }
   function saveTrade(t) {
     change(
-      addSnapshot(
-        { ...state, transactions: [...state.transactions, t] },
-        t.portfolio,
-        t.currency,
-      ),
+      (current) =>
+        addSnapshot(
+          { ...current, transactions: [...current.transactions, t] },
+          t.portfolio,
+          t.currency,
+        ),
       `${t.type === "buy" ? "Purchase" : t.type === "sell" ? "Sale" : "Dividend"} recorded`,
     );
     setCurrency(t.currency);
     setModal(null);
+  }
+  function savePlatform(id, platform) {
+    change(
+      (current) => ({
+        ...current,
+        transactions: current.transactions.map((t) =>
+          t.id === id ? { ...t, platform } : t,
+        ),
+      }),
+      "Trade platform saved",
+    );
   }
   function savePrices(q, error) {
     change(
@@ -242,8 +277,7 @@ export default function App({
           href="#"
           onClick={(e) => {
             e.preventDefault();
-            setPage("Overview");
-            setMobile(false);
+            navigate("Overview");
           }}
         >
           <img src="/apple-touch-icon.png" width="35" height="35" alt="" />
@@ -255,10 +289,7 @@ export default function App({
               key={label}
               className={page === label ? "selected" : ""}
               aria-current={page === label ? "page" : undefined}
-              onClick={() => {
-                setPage(label);
-                setMobile(false);
-              }}
+              onClick={() => navigate(label)}
             >
               <Icon size={19} strokeWidth={1.7} />
               {label}
@@ -372,41 +403,43 @@ export default function App({
               </button>
               <h1>{page === "Overview" ? "Your Portfolio" : page}</h1>
             </div>
-            <div className="heading-actions">
-              <button className="button" onClick={exportData}>
-                <Upload size={16} />
-                Export
-              </button>
-              <button className="primary" onClick={() => openBuy()}>
-                <Plus size={18} />
-                Add purchase
-              </button>
-            </div>
+            {page !== "Profit & Loss" && (
+              <div className="heading-actions">
+                <button className="button" onClick={exportData}>
+                  <Upload size={16} />
+                  Export
+                </button>
+                <button className="primary" onClick={() => openBuy()}>
+                  <Plus size={18} />
+                  Add purchase
+                </button>
+              </div>
+            )}
           </div>
-          <div className="portfolio-row">
-            <div className="segmented" aria-label="Portfolio type">
-              <button
-                aria-pressed={portfolio === "simulated"}
-                className={portfolio === "simulated" ? "active" : ""}
-                onClick={() => setPortfolio("simulated")}
+          {isSimulation && (
+            <div className="portfolio-row">
+              <div
+                className="segmented simulation-views"
+                role="group"
+                aria-label="Simulation views"
               >
-                Simulated
-              </button>
-              <button
-                aria-pressed={portfolio === "actual"}
-                className={portfolio === "actual" ? "active" : ""}
-                onClick={() => setPortfolio("actual")}
-              >
-                Actual holdings
-              </button>
-            </div>
-            {portfolio === "simulated" && (
+                {simulationViews.map((view) => (
+                  <button
+                    key={view}
+                    aria-pressed={simulationView === view}
+                    className={simulationView === view ? "active" : ""}
+                    onClick={() => setSimulationView(view)}
+                  >
+                    {view}
+                  </button>
+                ))}
+              </div>
               <span className="buying-power">
                 <Wallet size={14} />
                 Available cash <strong>{money(m.cash, currency)}</strong>
               </span>
-            )}
-          </div>
+            </div>
+          )}
           {saveError && (
             <div className="error-banner" role="alert">
               {saveError}
@@ -419,7 +452,7 @@ export default function App({
               </button>
             </div>
           )}
-          {m.mixedDays && page !== "Settings" && (
+          {m.mixedDays && (showPerformance || showPositions) && (
             <div className="warning-banner">
               Quotes span different trading sessions. Update all prices to the
               same session to calculate a portfolio daily return.
@@ -436,10 +469,10 @@ export default function App({
               ))}
             </details>
           )}
-          {(page === "Overview" || page === "Holdings") && (
+          {(showPerformance || showPositions) && (
             <>
               <Metrics metrics={m} currency={currency} />
-              {page === "Overview" && (
+              {showPerformance && (
                 <Charts
                   state={state}
                   portfolio={portfolio}
@@ -448,16 +481,17 @@ export default function App({
                 />
               )}
               <Holdings
+                key={page}
                 positions={m.positions}
                 currency={currency}
-                expanded={page === "Holdings"}
+                expanded={showPositions}
                 onAdd={() => openBuy()}
                 onDetail={(p) => setModal({ type: "detail", key: p.key })}
-                showNotes={page !== "Overview"}
+                showNotes={showPositions}
                 notes={state.stockNotes}
                 portfolio={portfolio}
               />
-              {page === "Holdings" && (
+              {showPositions && (
                 <div className="realized-strip">
                   <span>
                     Realized gains{" "}
@@ -479,8 +513,9 @@ export default function App({
               )}
             </>
           )}
-          {page === "Watchlist" && (
+          {showWatchlists && (
             <Watchlists
+              key={portfolio}
               state={state}
               portfolio={portfolio}
               currency={currency}
@@ -491,11 +526,13 @@ export default function App({
               onBuy={(p) => openBuy(p.watchOnly ? { ...p, lots: [] } : p)}
             />
           )}
-          {page === "Trade journal" && (
+          {showJournal && (
             <Journal
+              key={portfolio}
               state={state}
               portfolio={portfolio}
               currency={currency}
+              onPlatformChange={isSimulation ? undefined : savePlatform}
               onDelete={(t) => {
                 if (
                   state.transactions.some(
@@ -530,6 +567,9 @@ export default function App({
                 });
               }}
             />
+          )}
+          {page === "Profit & Loss" && (
+            <ProfitLoss transactions={state.transactions} />
           )}
           {page === "Settings" && (
             <Settings
@@ -593,11 +633,15 @@ export default function App({
                   ? "Changes not saved"
                   : "Saved on this device"}
             </span>
-            <span>
-              Folio · Your personal stock workspace
-              <span className="footer-sep">|</span>
-              {currency} · Exchange-local dates
-            </span>
+            {page === "Profit & Loss" ? (
+              <span>Exchange-local dates</span>
+            ) : (
+              <span>
+                Folio · Your personal stock workspace
+                <span className="footer-sep">|</span>
+                {currency} · Exchange-local dates
+              </span>
+            )}
           </footer>
         </div>
       </main>
